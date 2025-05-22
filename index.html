@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Particle Galaxy</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            cursor: none;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #ffffff;
+            z-index: 100;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            opacity: 0.8;
+        }
+        
+        #cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ff6b6b;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 101;
+            background: radial-gradient(circle, rgba(255,107,107,0.3) 0%, transparent 70%);
+            box-shadow: 0 0 20px #ff6b6b;
+        }
+        
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🌌 PARTICLE GALAXY 🌌<br>
+        Move your mouse to create gravitational wells<br>
+        Click to spawn particle bursts<br>
+        Scroll to zoom • R to reset
+    </div>
+    <div id="cursor"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000011);
+        document.body.appendChild(renderer.domElement);
+
+        // Audio setup
+        let synth, reverb, started = false;
+        
+        async function initAudio() {
+            if (!started) {
+                await Tone.start();
+                started = true;
+                
+                reverb = new Tone.Reverb(4).toDestination();
+                synth = new Tone.PolySynth().connect(reverb);
+                synth.volume.value = -20;
+            }
+        }
+
+        // Particle system
+        const particleCount = 8000;
+        const particles = [];
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+        const sizes = new Float32Array(particleCount);
+
+        // Particle class
+        class Particle {
+            constructor(x, y, z) {
+                this.position = new THREE.Vector3(x, y, z);
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02
+                );
+                this.originalPosition = this.position.clone();
+                this.life = 1.0;
+                this.size = Math.random() * 3 + 1;
+                this.color = new THREE.Color();
+                this.updateColor();
+            }
+            
+            updateColor() {
+                const distance = this.position.distanceTo(new THREE.Vector3(0, 0, 0));
+                const hue = (distance * 0.01 + Date.now() * 0.0001) % 1;
+                this.color.setHSL(hue, 0.8, 0.6);
+            }
+            
+            update(mousePos, time) {
+                // Gravitational effect from mouse
+                if (mousePos) {
+                    const mouseForce = mousePos.clone().sub(this.position);
+                    const distance = mouseForce.length();
+                    if (distance > 0) {
+                        mouseForce.normalize();
+                        const strength = Math.min(5 / (distance * distance + 1), 0.1);
+                        this.velocity.add(mouseForce.multiplyScalar(strength));
+                    }
+                }
+                
+                // Central gravitational pull
+                const centerForce = new THREE.Vector3(0, 0, 0).sub(this.position);
+                const centerDistance = centerForce.length();
+                if (centerDistance > 0) {
+                    centerForce.normalize();
+                    const centerStrength = 0.001;
+                    this.velocity.add(centerForce.multiplyScalar(centerStrength));
+                }
+                
+                // Spiral motion
+                const spiralForce = new THREE.Vector3(
+                    -this.position.y * 0.001,
+                    this.position.x * 0.001,
+                    0
+                );
+                this.velocity.add(spiralForce);
+                
+                // Apply velocity
+                this.position.add(this.velocity);
+                
+                // Damping
+                this.velocity.multiplyScalar(0.98);
+                
+                // Update color
+                this.updateColor();
+                
+                // Bounds check
+                if (this.position.length() > 100) {
+                    this.position.normalize().multiplyScalar(100);
+                }
+            }
+        }
+
+        // Initialize particles in a galaxy formation
+        function initParticles() {
+            for (let i = 0; i < particleCount; i++) {
+                const radius = Math.pow(Math.random(), 0.5) * 50;
+                const angle = Math.random() * Math.PI * 2;
+                const height = (Math.random() - 0.5) * 10;
+                
+                const x = Math.cos(angle) * radius;
+                const y = height;
+                const z = Math.sin(angle) * radius;
+                
+                particles[i] = new Particle(x, y, z);
+            }
+        }
+
+        initParticles();
+
+        // Create particle material
+        const vertexShader = `
+            attribute float size;
+            attribute vec3 customColor;
+            varying vec3 vColor;
+            
+            void main() {
+                vColor = customColor;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (300.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const fragmentShader = `
+            uniform sampler2D pointTexture;
+            varying vec3 vColor;
+            
+            void main() {
+                vec2 coords = gl_PointCoord;
+                float dist = distance(coords, vec2(0.5));
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                gl_FragColor = vec4(vColor, alpha);
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            vertexShader,
+            fragmentShader,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        const particleSystem = new THREE.Points(geometry, material);
+        scene.add(particleSystem);
+
+        // Mouse tracking
+        const mouse = new THREE.Vector2();
+        const mousePos3D = new THREE.Vector3();
+        const raycaster = new THREE.Raycaster();
+        let mouseWorldPos = null;
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update cursor
+            const cursor = document.getElementById('cursor');
+            cursor.style.left = event.clientX - 10 + 'px';
+            cursor.style.top = event.clientY - 10 + 'px';
+            
+            // Convert to 3D world position
+            raycaster.setFromCamera(mouse, camera);
+            const distance = 30;
+            mouseWorldPos = raycaster.ray.origin.clone().add(
+                raycaster.ray.direction.multiplyScalar(distance)
+            );
+        }
+
+        function onMouseClick(event) {
+            initAudio();
+            
+            // Create particle burst
+            if (mouseWorldPos) {
+                for (let i = 0; i < 50; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 2 + 1;
+                    const newParticle = new Particle(
+                        mouseWorldPos.x + (Math.random() - 0.5) * 2,
+                        mouseWorldPos.y + (Math.random() - 0.5) * 2,
+                        mouseWorldPos.z + (Math.random() - 0.5) * 2
+                    );
+                    newParticle.velocity.set(
+                        Math.cos(angle) * speed * (Math.random() - 0.5),
+                        (Math.random() - 0.5) * speed,
+                        Math.sin(angle) * speed * (Math.random() - 0.5)
+                    );
+                    
+                    // Replace a random particle
+                    const replaceIndex = Math.floor(Math.random() * particleCount);
+                    particles[replaceIndex] = newParticle;
+                }
+                
+                // Play sound
+                if (synth) {
+                    const notes = ['C4', 'E4', 'G4', 'B4', 'D5'];
+                    const note = notes[Math.floor(Math.random() * notes.length)];
+                    synth.triggerAttackRelease(note, '8n');
+                }
+            }
+        }
+
+        function onWheel(event) {
+            camera.position.z += event.deltaY * 0.01;
+            camera.position.z = Math.max(10, Math.min(200, camera.position.z));
+        }
+
+        function onKeyPress(event) {
+            if (event.key.toLowerCase() === 'r') {
+                // Reset particles
+                initParticles();
+                camera.position.set(0, 0, 50);
+            }
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('click', onMouseClick);
+        window.addEventListener('wheel', onWheel);
+        window.addEventListener('keypress', onKeyPress);
+
+        // Camera setup
+        camera.position.set(0, 0, 50);
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const time = Date.now() * 0.001;
+            
+            // Update particles
+            for (let i = 0; i < particleCount; i++) {
+                particles[i].update(mouseWorldPos, time);
+                
+                // Update geometry
+                positions[i * 3] = particles[i].position.x;
+                positions[i * 3 + 1] = particles[i].position.y;
+                positions[i * 3 + 2] = particles[i].position.z;
+                
+                colors[i * 3] = particles[i].color.r;
+                colors[i * 3 + 1] = particles[i].color.g;
+                colors[i * 3 + 2] = particles[i].color.b;
+                
+                sizes[i] = particles[i].size;
+            }
+            
+            geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.customColor.needsUpdate = true;
+            geometry.attributes.size.needsUpdate = true;
+            
+            // Slowly rotate camera
+            camera.position.x = Math.cos(time * 0.1) * 50;
+            camera.position.z = Math.sin(time * 0.1) * 50;
+            camera.lookAt(0, 0, 0);
+            
+            // Add gentle bobbing motion
+            camera.position.y = Math.sin(time * 0.2) * 5;
+            
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.addEventListener('resize', onWindowResize);
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
