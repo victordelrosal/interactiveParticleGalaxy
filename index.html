@@ -3,87 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Particle Galaxy</title>
+    <title>🌌 COSMIC GENESIS - Interactive Universe Explorer 🌌</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@100;400;700;900&display=swap');
+        
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             margin: 0;
             padding: 0;
-            background: #000;
+            background: radial-gradient(ellipse at center, #001122 0%, #000000 100%);
             overflow: hidden;
-            font-family: 'Courier New', monospace;
+            font-family: 'Orbitron', monospace;
             cursor: none;
+            user-select: none;
+        }
+        
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 100;
         }
         
         #info {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #ffffff;
-            z-index: 100;
+            top: 25px;
+            left: 25px;
+            color: #00ffff;
+            font-size: 16px;
+            font-weight: 700;
+            text-shadow: 0 0 20px rgba(0,255,255,0.8), 0 0 40px rgba(0,255,255,0.4);
+            opacity: 0.9;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,255,255,0.3);
+            backdrop-filter: blur(10px);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.02); opacity: 1; }
+        }
+        
+        #stats {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            color: #ff6b6b;
             font-size: 14px;
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
-            opacity: 0.8;
+            font-weight: 400;
+            text-shadow: 0 0 15px rgba(255,107,107,0.8);
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,107,107,0.3);
+            backdrop-filter: blur(10px);
+            font-family: 'Space Mono', monospace;
         }
         
         #cursor {
             position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #ff6b6b;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #00ffff;
             border-radius: 50%;
             pointer-events: none;
             z-index: 101;
-            background: radial-gradient(circle, rgba(255,107,107,0.3) 0%, transparent 70%);
-            box-shadow: 0 0 20px #ff6b6b;
+            background: radial-gradient(circle, rgba(0,255,255,0.2) 0%, rgba(0,255,255,0.1) 50%, transparent 70%);
+            box-shadow: 
+                0 0 30px #00ffff,
+                0 0 60px rgba(0,255,255,0.5),
+                inset 0 0 20px rgba(0,255,255,0.2);
+            animation: cursorPulse 2s ease-in-out infinite;
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes cursorPulse {
+            0%, 100% { 
+                transform: scale(1) rotate(0deg);
+                box-shadow: 0 0 30px #00ffff, 0 0 60px rgba(0,255,255,0.5);
+            }
+            50% { 
+                transform: scale(1.2) rotate(180deg);
+                box-shadow: 0 0 50px #00ffff, 0 0 100px rgba(0,255,255,0.8);
+            }
+        }
+        
+        #cursor.active {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 50px #ff6b6b, 0 0 100px rgba(255,107,107,0.8);
+            transform: scale(1.5);
+        }
+        
+        #nebula-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 30%, rgba(138,43,226,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(255,20,147,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 40% 80%, rgba(0,191,255,0.08) 0%, transparent 50%);
+            pointer-events: none;
+            animation: nebulaFloat 20s ease-in-out infinite;
+        }
+        
+        @keyframes nebulaFloat {
+            0%, 100% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+            50% { opacity: 0.6; transform: scale(1.1) rotate(5deg); }
         }
         
         canvas {
             display: block;
+            filter: contrast(1.1) saturate(1.2);
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            font-size: 24px;
+            font-weight: 900;
+            text-shadow: 0 0 30px rgba(0,255,255,1);
+            z-index: 1000;
+            animation: loadingPulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes loadingPulse {
+            0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
         }
     </style>
 </head>
 <body>
-    <div id="info">
-        🌌 PARTICLE GALAXY 🌌<br>
-        Move your mouse to create gravitational wells<br>
-        Click to spawn particle bursts<br>
-        Scroll to zoom • R to reset
+    <div id="loading">⚡ INITIALIZING COSMIC GENESIS ⚡</div>
+    <div id="nebula-overlay"></div>
+    
+    <div id="hud">
+        <div id="info">
+            🌌 COSMIC GENESIS 🌌<br>
+            <span style="font-size: 12px; color: #88ffff;">
+                MOUSE • Create gravitational anomalies<br>
+                CLICK • Quantum particle explosions<br>
+                WHEEL • Dimensional zoom<br>
+                SPACE • Black hole mode<br>
+                Q/E • Time dilation ±<br>
+                R • Reset universe<br>
+                T • Toggle music
+            </span>
+        </div>
+        
+        <div id="stats">
+            <div>PARTICLES: <span id="particleCount">0</span></div>
+            <div>GRAVITY: <span id="gravityStr">NORMAL</span></div>
+            <div>TIME: <span id="timeFlow">1.00x</span></div>
+            <div>ENERGY: <span id="energyLevel">100%</span></div>
+        </div>
     </div>
+    
     <div id="cursor"></div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     
     <script>
-        // Scene setup
+        // Remove loading screen after delay
+        setTimeout(() => {
+            const loading = document.getElementById('loading');
+            if (loading) loading.style.display = 'none';
+        }, 2000);
+
+        // Scene setup with enhanced renderer
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance"
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x000011);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x000011, 1);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
-        // Audio setup
-        let synth, reverb, started = false;
+        // Enhanced Audio setup with multiple synths
+        let synths = [], reverb, delay, filter, started = false, musicEnabled = false;
+        let ambientSynth, bassSynth;
         
         async function initAudio() {
             if (!started) {
                 await Tone.start();
                 started = true;
                 
-                reverb = new Tone.Reverb(4).toDestination();
-                synth = new Tone.PolySynth().connect(reverb);
-                synth.volume.value = -20;
+                // Create effect chain
+                reverb = new Tone.Reverb(8).toDestination();
+                delay = new Tone.FeedbackDelay("8n", 0.3).connect(reverb);
+                filter = new Tone.Filter(400, "lowpass").connect(delay);
+                
+                // Main harmonic synths
+                for (let i = 0; i < 4; i++) {
+                    const synth = new Tone.PolySynth(Tone.FMSynth).connect(filter);
+                    synth.volume.value = -25;
+                    synths.push(synth);
+                }
+                
+                // Ambient pad
+                ambientSynth = new Tone.PolySynth(Tone.AMSynth).connect(reverb);
+                ambientSynth.volume.value = -35;
+                
+                // Bass synth
+                bassSynth = new Tone.MonoSynth().connect(reverb);
+                bassSynth.volume.value = -30;
+                
+                // Start ambient music
+                if (musicEnabled) {
+                    playAmbientMusic();
+                }
             }
         }
+        
+        function playAmbientMusic() {
+            const scales = [
+                ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4'],
+                ['A2', 'B2', 'D3', 'E3', 'F#3', 'A3', 'B3', 'D4'],
+                ['F2', 'G2', 'A2', 'C3', 'D3', 'F3', 'G3', 'A3']
+            ];
+            
+            function playRandomNote() {
+                if (!musicEnabled || !ambientSynth) return;
+                
+                const scale = scales[Math.floor(Math.random() * scales.length)];
+                const note = scale[Math.floor(Math.random() * scale.length)];
+                const duration = Math.random() * 4 + 2;
+                
+                ambientSynth.triggerAttackRelease(note, duration);
+                
+                setTimeout(playRandomNote, (Math.random() * 3 + 1) * 1000);
+            }
+            
+            playRandomNote();
+        }
 
-        // Particle system
-        const particleCount = 8000;
+        // Enhanced particle system with multiple types
+        const particleCount = 12000;
         const particles = [];
+        const blackHoles = [];
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const colors = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
+        
+        // Global physics variables
+        let timeScale = 1.0;
+        let gravityStrength = 1.0;
+        let blackHoleMode = false;
+        let energyLevel = 100;
 
         // Particle class
         class Particle {
@@ -99,55 +286,120 @@
                 this.size = Math.random() * 3 + 1;
                 this.color = new THREE.Color();
                 this.updateColor();
+                this.energy = Math.random() * 100;
+                this.type = Math.random() > 0.95 ? 'star' : 'normal';
+                this.age = 0;
+                this.trail = [];
+                this.maxTrailLength = 20;
             }
             
             updateColor() {
                 const distance = this.position.distanceTo(new THREE.Vector3(0, 0, 0));
-                const hue = (distance * 0.01 + Date.now() * 0.0001) % 1;
-                this.color.setHSL(hue, 0.8, 0.6);
+                const time = Date.now() * 0.001;
+                
+                if (this.type === 'star') {
+                    // Star particles with pulsing white-blue color
+                    const pulse = Math.sin(time * 5) * 0.5 + 0.5;
+                    this.color.setHSL(0.6, 0.3, 0.8 + pulse * 0.2);
+                    this.size = 4 + pulse * 2;
+                } else {
+                    // Regular particles with rainbow spiral effect
+                    const hue = (distance * 0.01 + time * 0.1 + this.energy * 0.01) % 1;
+                    const saturation = 0.7 + Math.sin(time * 2) * 0.3;
+                    const lightness = 0.4 + distance * 0.005 + Math.sin(time * 3) * 0.2;
+                    this.color.setHSL(hue, saturation, lightness);
+                }
             }
             
             update(mousePos, time) {
-                // Gravitational effect from mouse
+                this.age++;
+                
+                // Update trail
+                this.trail.push(this.position.clone());
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+                
+                // Mouse gravitational effect with enhanced physics
                 if (mousePos) {
                     const mouseForce = mousePos.clone().sub(this.position);
                     const distance = mouseForce.length();
                     if (distance > 0) {
                         mouseForce.normalize();
-                        const strength = Math.min(5 / (distance * distance + 1), 0.1);
-                        this.velocity.add(mouseForce.multiplyScalar(strength));
+                        let strength = Math.min(8 / (distance * distance + 1), 0.15);
+                        
+                        // Enhanced gravity for black hole mode
+                        if (blackHoleMode) {
+                            strength *= 3;
+                            this.color.setHSL(0, 0, Math.max(0.1, 1 - distance * 0.02));
+                        }
+                        
+                        this.velocity.add(mouseForce.multiplyScalar(strength * timeScale));
                     }
                 }
                 
-                // Central gravitational pull
+                // Multiple gravity wells
                 const centerForce = new THREE.Vector3(0, 0, 0).sub(this.position);
                 const centerDistance = centerForce.length();
                 if (centerDistance > 0) {
                     centerForce.normalize();
-                    const centerStrength = 0.001;
+                    const centerStrength = 0.002 * gravityStrength;
                     this.velocity.add(centerForce.multiplyScalar(centerStrength));
                 }
                 
-                // Spiral motion
+                // Enhanced spiral motion with multiple arms
+                const spiralArms = 4;
+                const armAngle = (Math.atan2(this.position.z, this.position.x) + Math.PI) / (Math.PI * 2);
+                const armIndex = Math.floor(armAngle * spiralArms);
+                const spiralStrength = 0.002 + Math.sin(time * 0.5) * 0.001;
+                
                 const spiralForce = new THREE.Vector3(
-                    -this.position.y * 0.001,
-                    this.position.x * 0.001,
-                    0
+                    -this.position.y * spiralStrength * (1 + armIndex * 0.2),
+                    this.position.x * spiralStrength * (1 + armIndex * 0.2),
+                    Math.sin(time * 0.3 + armIndex) * 0.01
                 );
                 this.velocity.add(spiralForce);
                 
-                // Apply velocity
-                this.position.add(this.velocity);
+                // Particle interaction forces
+                this.interactWithNearbyParticles();
                 
-                // Damping
-                this.velocity.multiplyScalar(0.98);
+                // Apply velocity with time scaling
+                this.position.add(this.velocity.clone().multiplyScalar(timeScale));
+                
+                // Enhanced damping
+                this.velocity.multiplyScalar(0.985);
                 
                 // Update color
                 this.updateColor();
                 
-                // Bounds check
-                if (this.position.length() > 100) {
-                    this.position.normalize().multiplyScalar(100);
+                // Energy decay and regeneration
+                this.energy = Math.max(0, this.energy - 0.1);
+                if (this.energy < 20 && Math.random() < 0.001) {
+                    this.energy = 100;
+                }
+                
+                // Bounds with elastic collision
+                const boundary = 100;
+                if (this.position.length() > boundary) {
+                    const normal = this.position.clone().normalize();
+                    this.velocity.reflect(normal).multiplyScalar(0.8);
+                    this.position.normalize().multiplyScalar(boundary);
+                }
+            }
+            
+            interactWithNearbyParticles() {
+                // Simple particle interaction for enhanced visuals
+                const interactionRadius = 5;
+                for (let i = 0; i < Math.min(particles.length, 50); i++) {
+                    const other = particles[Math.floor(Math.random() * particles.length)];
+                    if (other === this) continue;
+                    
+                    const distance = this.position.distanceTo(other.position);
+                    if (distance < interactionRadius && distance > 0) {
+                        const force = this.position.clone().sub(other.position).normalize();
+                        const strength = 0.001 / (distance + 1);
+                        this.velocity.add(force.multiplyScalar(strength));
+                    }
                 }
             }
         }
@@ -174,24 +426,35 @@
             attribute float size;
             attribute vec3 customColor;
             varying vec3 vColor;
+            varying float vAlpha;
             
             void main() {
                 vColor = customColor;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                 gl_PointSize = size * (300.0 / -mvPosition.z);
                 gl_Position = projectionMatrix * mvPosition;
+                
+                // Fade particles based on distance from center
+                float dist = length(position.xyz);
+                vAlpha = 1.0 - smoothstep(50.0, 100.0, dist);
             }
         `;
 
         const fragmentShader = `
-            uniform sampler2D pointTexture;
             varying vec3 vColor;
+            varying float vAlpha;
             
             void main() {
                 vec2 coords = gl_PointCoord;
                 float dist = distance(coords, vec2(0.5));
+                
+                // Create a more complex particle shape
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(vColor, alpha);
+                float innerGlow = 1.0 - smoothstep(0.0, 0.3, dist);
+                float outerGlow = 1.0 - smoothstep(0.3, 0.5, dist);
+                
+                vec3 finalColor = vColor * (innerGlow * 2.0 + outerGlow * 0.5);
+                gl_FragColor = vec4(finalColor, alpha * vAlpha * 0.8);
             }
         `;
 
@@ -236,53 +499,93 @@
         function onMouseClick(event) {
             initAudio();
             
+            const cursor = document.getElementById('cursor');
+            cursor.classList.add('active');
+            setTimeout(() => cursor.classList.remove('active'), 300);
+            
             // Create particle burst
             if (mouseWorldPos) {
-                for (let i = 0; i < 50; i++) {
+                for (let i = 0; i < 100; i++) {
                     const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 2 + 1;
+                    const speed = Math.random() * 3 + 1;
                     const newParticle = new Particle(
-                        mouseWorldPos.x + (Math.random() - 0.5) * 2,
-                        mouseWorldPos.y + (Math.random() - 0.5) * 2,
-                        mouseWorldPos.z + (Math.random() - 0.5) * 2
+                        mouseWorldPos.x + (Math.random() - 0.5) * 3,
+                        mouseWorldPos.y + (Math.random() - 0.5) * 3,
+                        mouseWorldPos.z + (Math.random() - 0.5) * 3
                     );
                     newParticle.velocity.set(
                         Math.cos(angle) * speed * (Math.random() - 0.5),
                         (Math.random() - 0.5) * speed,
                         Math.sin(angle) * speed * (Math.random() - 0.5)
                     );
+                    newParticle.type = Math.random() > 0.8 ? 'star' : 'normal';
                     
                     // Replace a random particle
                     const replaceIndex = Math.floor(Math.random() * particleCount);
                     particles[replaceIndex] = newParticle;
                 }
                 
-                // Play sound
-                if (synth) {
-                    const notes = ['C4', 'E4', 'G4', 'B4', 'D5'];
-                    const note = notes[Math.floor(Math.random() * notes.length)];
-                    synth.triggerAttackRelease(note, '8n');
+                // Play harmonic sound burst
+                if (synths.length > 0) {
+                    const chords = [
+                        ['C4', 'E4', 'G4', 'B4'],
+                        ['A3', 'C4', 'E4', 'A4'],
+                        ['F3', 'A3', 'C4', 'F4'],
+                        ['G3', 'B3', 'D4', 'G4']
+                    ];
+                    const chord = chords[Math.floor(Math.random() * chords.length)];
+                    
+                    chord.forEach((note, index) => {
+                        if (synths[index]) {
+                            synths[index].triggerAttackRelease(note, '4n');
+                        }
+                    });
                 }
             }
         }
 
         function onWheel(event) {
-            camera.position.z += event.deltaY * 0.01;
+            camera.position.z += event.deltaY * 0.02;
             camera.position.z = Math.max(10, Math.min(200, camera.position.z));
         }
 
-        function onKeyPress(event) {
-            if (event.key.toLowerCase() === 'r') {
-                // Reset particles
-                initParticles();
-                camera.position.set(0, 0, 50);
+        function onKeyDown(event) {
+            switch(event.key.toLowerCase()) {
+                case ' ':
+                    event.preventDefault();
+                    blackHoleMode = !blackHoleMode;
+                    document.getElementById('gravityStr').textContent = blackHoleMode ? 'BLACK HOLE' : 'NORMAL';
+                    break;
+                case 'q':
+                    timeScale = Math.max(0.1, timeScale - 0.1);
+                    document.getElementById('timeFlow').textContent = timeScale.toFixed(2) + 'x';
+                    break;
+                case 'e':
+                    timeScale = Math.min(3.0, timeScale + 0.1);
+                    document.getElementById('timeFlow').textContent = timeScale.toFixed(2) + 'x';
+                    break;
+                case 'r':
+                    // Reset particles
+                    initParticles();
+                    camera.position.set(0, 0, 50);
+                    timeScale = 1.0;
+                    blackHoleMode = false;
+                    document.getElementById('gravityStr').textContent = 'NORMAL';
+                    document.getElementById('timeFlow').textContent = '1.00x';
+                    break;
+                case 't':
+                    musicEnabled = !musicEnabled;
+                    if (musicEnabled && started) {
+                        playAmbientMusic();
+                    }
+                    break;
             }
         }
 
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('click', onMouseClick);
         window.addEventListener('wheel', onWheel);
-        window.addEventListener('keypress', onKeyPress);
+        window.addEventListener('keydown', onKeyDown);
 
         // Camera setup
         camera.position.set(0, 0, 50);
@@ -292,6 +595,10 @@
             requestAnimationFrame(animate);
             
             const time = Date.now() * 0.001;
+            
+            // Update particle count display
+            document.getElementById('particleCount').textContent = particleCount;
+            document.getElementById('energyLevel').textContent = Math.floor(energyLevel) + '%';
             
             // Update particles
             for (let i = 0; i < particleCount; i++) {
@@ -313,13 +620,26 @@
             geometry.attributes.customColor.needsUpdate = true;
             geometry.attributes.size.needsUpdate = true;
             
-            // Slowly rotate camera
-            camera.position.x = Math.cos(time * 0.1) * 50;
-            camera.position.z = Math.sin(time * 0.1) * 50;
-            camera.lookAt(0, 0, 0);
+            // Enhanced camera movement with multiple modes
+            if (!blackHoleMode) {
+                // Slowly rotate camera
+                camera.position.x = Math.cos(time * 0.1) * 50;
+                camera.position.z = Math.sin(time * 0.1) * 50;
+                camera.lookAt(0, 0, 0);
+                
+                // Add gentle bobbing motion
+                camera.position.y = Math.sin(time * 0.2) * 5;
+            } else {
+                // More dramatic movement in black hole mode
+                const radius = 30 + Math.sin(time * 0.5) * 10;
+                camera.position.x = Math.cos(time * 0.3) * radius;
+                camera.position.z = Math.sin(time * 0.3) * radius;
+                camera.position.y = Math.sin(time * 0.4) * 15;
+                camera.lookAt(0, 0, 0);
+            }
             
-            // Add gentle bobbing motion
-            camera.position.y = Math.sin(time * 0.2) * 5;
+            // Dynamic energy level simulation
+            energyLevel = 50 + Math.sin(time * 0.1) * 30 + Math.random() * 10;
             
             renderer.render(scene, camera);
         }
